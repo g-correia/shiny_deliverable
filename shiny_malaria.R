@@ -22,15 +22,6 @@ d$UF_NOTIF = d$UF_NOTIF %>%
                     "Maranhão", "Mato Grosso"))
 d = d %>% rename(UF = UF_NOTIF)
 
-# municipalities as factors
-d$MUN_RESI = factor(d$MUN_RESI)
-
-casos_municipio = d %>% 
-  group_by(MUN_RESI) %>% 
-  summarise(casos = n()) %>% 
-  arrange(desc(casos)) %>% 
-  top_n(10)
-
 # defining ggplot theme
 tema = theme_classic()+
   theme(plot.title = element_text(color="black", size=14, face="bold", 
@@ -57,14 +48,6 @@ ui <- fluidPage(
       mainPanel(
         plotOutput("casos_UF"))
       )
-    ),
-    tabPanel("Municipal", sidebarLayout(sidebarPanel("Os dez municípios com maior número de casos:",
-                                                     selectInput(inputId = "municipio",
-                                                                 label = "Município:",
-                                                                 choices = c("---- Selecione ----", casos_municipio[1]))),
-                                        mainPanel(plotOutput("municipios_casos"))
-                                        
-    )
     ),
     tabPanel( 
       "Missing Data",
@@ -111,32 +94,7 @@ server <- function(input, output){
     }
   })
   
-  output$municipios_casos <- renderPlot({ 
-    
-    if(input$municipio == "--- Select ---"){
-      
-    } else { 
-      
-      dados_casos_muni <- d %>% 
-        filter(MUN_NOTI == input$municipio) %>% 
-        group_by(SEM_NOTI) %>% 
-        summarise(casos_semana = n())
-      
-      ##### Removing the first week of 2018
-      dados_casos_muni = dados_casos_muni[-2,]
-      
-      ggplot(data = dados_casos_muni,
-             aes(x = as.numeric(SEM_NOTI),
-                 y = casos_semana)) +
-        geom_line() + 
-        labs(x = "Tempo (em semanas)",
-             y = "Casos",
-             title = "Gráfico do número de casos") +
-        tema
-      
-    }
-  })
-  
+
   output$grafico_UF_NA <- renderPlot({
     
     if(input$UF_NA == "--- Selecione ---"){

@@ -5,7 +5,6 @@ library(tidyverse)
 library(shiny)
 library(shinythemes)
 
-
 # data processing
 da = read.dbf("NOTIPO17.DBF")
 d = da$dbf
@@ -15,12 +14,14 @@ d$DelayDays <- difftime(as.Date(as.character(d$DT_DIGIT),format="%Y-%m-%d"),
                         as.Date(as.character(d$DT_NOTIF),format="%Y-%m-%d"),
                         units = "days")
 
-
 d$UF_NOTIF = d$UF_NOTIF %>% 
   factor(labels = c("Rondônia", "Acre", "Amazonas", 
                     "Roraima", "Pará", "Amapá", "Tocantins",
                     "Maranhão", "Mato Grosso"))
 d = d %>% rename(UF = UF_NOTIF)
+
+# municipalities as factors
+d$MUN_RESI = factor(d$MUN_RESI)
 
 # defining ggplot theme
 tema = theme_classic()+
@@ -33,42 +34,44 @@ ui <- fluidPage(
   tabsetPanel(
     tabPanel( 
       "General",
-      sidebarLayout(sidebarPanel("Cases per Federative Unit (State):",
-                                 selectInput("UF", "FU of Notification of Disease:", c("--- Select ---", "Rondônia", "Acre", "Amazonas", 
+      sidebarLayout(
+        sidebarPanel("Cases per Federative Unit (State):",
+                     selectInput("UF", "FU of Notification of Disease:", c("--- Select ---", "Rondônia", "Acre", "Amazonas", 
                                                                            "Roraima", "Pará", "Amapá", "Tocantins",
                                                                            "Maranhão", "Mato Grosso")), 
-                                 sliderInput(inputId = "intervalo2",
-                                             label = "Time (epidemiologic week):",
-                                             min = 1,
-                                             max = 52,
-                                             value = c(1,52),
-                                             dragRange = F)
-      ),
-      
-      mainPanel(
-        plotOutput("casos_UF"))
+                     sliderInput(inputId = "intervalo2",
+                                 label = "Time (epidemiologic week):",
+                                 min = 1,
+                                 max = 52,
+                                 value = c(1,52),
+                                 dragRange = F)
+        ),
+        mainPanel(
+          plotOutput("casos_UF")
+        )
       )
     ),
     tabPanel( 
       "Missing Data",
-      sidebarLayout(sidebarPanel("Analysis of missing data in variable 'symptom date' vs cases, for the year 2017",
-                                 selectInput(inputId = "UF_NA",
-                                             label = "Federative Unit:",
-                                             choices = c("--- Select ---", "Rondônia", "Acre", "Amazonas", 
-                                                         "Roraima", "Pará", "Amapá", "Tocantins",
-                                                         "Maranhão", "Mato Grosso"))),
-                    mainPanel(plotOutput("grafico_UF_NA"), 
-                              tableOutput("tabela_UF_NA")))
-      
+      sidebarLayout(
+        sidebarPanel("Analysis of missing data in variable 'symptom date' vs cases, for the year 2017",
+                     selectInput(inputId = "UF_NA",
+                                 label = "Federative Unit:",
+                                 choices = c("--- Select ---", "Rondônia", "Acre", "Amazonas", 
+                                             "Roraima", "Pará", "Amapá", "Tocantins",
+                                             "Maranhão", "Mato Grosso"))),
+        mainPanel(
+          plotOutput("grafico_UF_NA"), 
+          tableOutput("tabela_UF_NA")
+        )
+      )
     )
   )
 )
 
-
 server <- function(input, output){
   
   output$casos_UF <- renderPlot({
-    
     if(input$UF == "--- Select ---"){
       
     } else { 
@@ -86,25 +89,25 @@ server <- function(input, output){
              aes(x = as.numeric(SEM_NOTI), 
                  y = casos_semana)) + 
         geom_line() +
-        labs(x = "Time (weeks)",
+        labs(x = "Time (week)",
              y = "Cases",
-             title = "Time Series of Malaria Cases") +
+             title = "Time Series of the Malaria Cases") +
         tema
       
     }
   })
   
-
   output$grafico_UF_NA <- renderPlot({
-    
-    if(input$UF_NA == "--- Selecione ---"){
+    if(input$UF_NA == "--- Select ---"){
     } else { 
       
       base = d %>% 
         filter(UF == input$UF_NA) %>% 
         group_by(SEM_NOTI) %>% 
-        summarise(NA_DT_SINTO_SEMANA = sum(if_else(is.na(DT_SINTO), 1, 0)),
-                  casos_semana_UF_NA = n()) %>% 
+        summarise(
+          NA_DT_SINTO_SEMANA = sum(if_else(is.na(DT_SINTO), 1, 0)),
+          casos_semana_UF_NA = n()
+        ) %>% 
         select(NA_DT_SINTO_SEMANA, casos_semana_UF_NA)
       
       ggplot(base, 
@@ -119,21 +122,20 @@ server <- function(input, output){
   })
   
   output$tabela_UF_NA <- renderTable({
-    
     if(input$UF_NA == "--- Select ---"){
-      
-      
     } else { 
       
       title <- "Tabela de dados"
       resumo_dados <- d %>% 
         filter(UF == input$UF_NA) %>% 
         filter(!is.na(UF), !is.na(DelayDays)) %>% 
-        summarise(mean = mean(DelayDays),
-                  SD = sd(DelayDays), 
-                  median = median(DelayDays),
-                  `1st quartile` = quantile(DelayDays, probs = 0.25, na.rm = T),
-                  `3rd quartile` = quantile(DelayDays, probs = 0.75, na.rm = T))
+        summarise(
+          mean = mean(DelayDays),
+          SD = sd(DelayDays), 
+          median = median(DelayDays),
+          `1st quartile` = quantile(DelayDays, probs = 0.25, na.rm = T),
+          `3rd quartile` = quantile(DelayDays, probs = 0.75, na.rm = T)
+        )
     }
   }, striped = TRUE, bordered = TRUE,  
   hover = TRUE, spacing = 'm', digits = 2, align = 'c', width = '100%')
